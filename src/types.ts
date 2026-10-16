@@ -1,8 +1,8 @@
 /** Prefixed with SCRIPT_, so they never read as another package's kinds in a shared report, such as pdf-defuse's FORM. */
 export enum ScriptCategory {
-  /** The script only formats, checks or calculates form fields. */
+  /** The script only formats, checks or calculates form fields, or a macro calls nothing known to reach outside its document. */
   Form = 'SCRIPT_FORM',
-  /** The script reaches outside the form: a URL, mail, a submit, another file, an attachment, the network. */
+  /** The script reaches outside the form or document: a URL, mail, a submit, another file, the network, a program, a library. */
   External = 'SCRIPT_EXTERNAL',
   /** The script runs code it builds at run time, installs scripts, or reaches the language's own machinery. */
   DynamicCode = 'SCRIPT_DYNAMIC_CODE',
@@ -17,6 +17,7 @@ export enum ScriptCategory {
 export enum ScriptDetail {
   // FORM
   Computation = 'COMPUTATION',
+  DocumentMacro = 'DOCUMENT_MACRO',
   // EXTERNAL
   Url = 'URL',
   Submit = 'SUBMIT',
@@ -28,6 +29,14 @@ export enum ScriptDetail {
   MenuCommand = 'MENU_COMMAND',
   Print = 'PRINT',
   Save = 'SAVE',
+  FileSystem = 'FILE_SYSTEM',
+  Process = 'PROCESS',
+  Registry = 'REGISTRY',
+  Dde = 'DDE',
+  ComObject = 'COM_OBJECT',
+  NativeCode = 'NATIVE_CODE',
+  Environment = 'ENVIRONMENT',
+  Reference = 'REFERENCE',
   // DYNAMIC_CODE
   Eval = 'EVAL',
   Timer = 'TIMER',
@@ -37,6 +46,7 @@ export enum ScriptDetail {
   Prototype = 'PROTOTYPE',
   With = 'WITH',
   SelfReference = 'SELF_REFERENCE',
+  LegacyMacro = 'LEGACY_MACRO',
   // OBFUSCATION
   CharCodes = 'CHAR_CODES',
   Decode = 'DECODE',
@@ -126,20 +136,30 @@ export interface ScriptOptions {
   scoreBands?: ScriptScoreBands;
 }
 
-/** Where a script runs, as a container reports it. pdf-defuse's ContainedScript fits. */
+/** A type library or another VBA project a VBA project refers to, as office-defuse reads it from the dir stream. */
+export interface ScriptReference {
+  name: string;
+  kind: 'registered' | 'control' | 'project';
+  /** A type library's LibidReference, such as `*\G{...}#2.0#0#path#description`, or a project's path. */
+  libid: string;
+}
+
+/** Where a script runs, as a container reports it. pdf-defuse's and office-defuse's ContainedScript fit. */
 export interface ScriptContext {
-  /** "document", "open", "field-format", "field-calculate", "click", ... */
+  /** "document", "open", "field-format", "field-calculate", "click", ...; for a VBA module "vba-" and its kind. */
   trigger?: string;
   location?: string;
   fieldName?: string;
-  /** 'javascript' unless the script is FormCalc, which only XFA forms carry. */
-  language?: 'javascript' | 'formcalc';
-  /** 'xfa' for a script in an XFA form, which runs against the XFA object model. */
-  form?: 'acroform' | 'xfa';
+  /** 'javascript' unless the script is FormCalc, which only XFA forms carry, or a VBA module. */
+  language?: 'javascript' | 'formcalc' | 'vba';
+  /** 'xfa' for a script in an XFA form, which runs against the XFA object model; 'office' for a VBA module. */
+  form?: 'acroform' | 'xfa' | 'office';
+  /** For a VBA module, the references of its project. office-defuse gives them with the project's first module. */
+  references?: ScriptReference[];
 }
 
 export interface ScriptInspection {
-  /** 'form' when no finding strips the script: it only formats, checks or calculates form fields. */
+  /** 'form' when no finding strips the script: it only formats, checks or calculates form fields, or a VBA module calls nothing known to reach outside its document. */
   verdict: 'form' | 'unsafe';
   score: number;
   risk: ScriptRisk;

@@ -1,8 +1,8 @@
 # script-defuse
 
-Tell a PDF form's scripts from the rest. script-defuse parses a script and calls it a form script when every call and every property it uses formats, checks or calculates form fields. It reads AcroForm JavaScript, and the JavaScript and FormCalc of XFA forms. Any other script is unsafe, and its findings name what it reaches and on which line: a web address, a form submit, mail, another document, an attached file, the network, code built from a string, or text it hides.
+Tell a document's harmless scripts from the rest. script-defuse parses a PDF form's script and calls it a form script when every call and every property it uses formats, checks or calculates form fields. It reads AcroForm JavaScript, and the JavaScript and FormCalc of XFA forms. It also reads the VBA modules of Office documents, and passes a module that calls nothing on its list of the ways a macro reaches outside its document. Any other script is unsafe, and its findings name what it reaches and on which line: a web address, a form submit, mail, another document or file, the network, a program, code built from a string, or text it hides.
 
-It plugs into [pdf-defuse](https://github.com/patrickdk77/pdf-defuse) as a script plugin, so a fillable form keeps its calculations, formats and checks while every other script goes. It parses with [acorn](https://github.com/acornjs/acorn), its one runtime dependency, and follows the shapes of the other defuse packages.
+It plugs into [pdf-defuse](https://github.com/patrickdk77/pdf-defuse) and [office-defuse](https://github.com/patrickdk77/office-defuse) as a script plugin. A fillable form keeps its calculations, formats and checks, and a workbook keeps the macros that only work on the workbook, while every other script goes. It parses JavaScript with [acorn](https://github.com/acornjs/acorn), its one runtime dependency, and follows the shapes of the other defuse packages.
 
 ```
 npm install @patrickdk77/script-defuse
@@ -37,7 +37,18 @@ pdf-defuse removes every script unless a plugin keeps it. This plugin keeps the 
 
 Make one plugin per PDF. pdf-defuse hands it the document-level scripts first, and the plugin remembers the globals of the ones it kept, so a field script may call a helper they define. A field script that calls a helper from a document script the plugin removed is removed too.
 
-With [file-defuse](https://github.com/patrickdk77/file-defuse), pass it in the pdf section: `disarmFile(bytes, { pdf: { scriptPlugins: [formScriptPlugin()] } })`.
+With [file-defuse](https://github.com/patrickdk77/file-defuse) 0.1.4 or later, every PDF and Office file already gets one.
+
+### With office-defuse
+
+```js
+const { disarmOffice } = require('@patrickdk77/office-defuse');
+const { formScriptPlugin } = require('@patrickdk77/script-defuse');
+
+const result = await disarmOffice(bytes, { scriptPlugins: [formScriptPlugin()] });
+```
+
+office-defuse 0.2.3 and later shows the plugin each module of a VBA project and keeps the project only when every module passes. It then writes the project without its compiled code, so Office compiles the source script-defuse read. See [VBA](#vba).
 
 ## What a form script may use
 
@@ -90,6 +101,26 @@ References such as `$host.messageBox`, `$.rawValue`, `xfa.event.change` and `$re
 
 An XFA script defines no globals for other scripts, which reach its functions through the node that holds it.
 
+## VBA
+
+`context.language: 'vba'` reads a VBA module as Office stores it, with `form: 'office'`. A macro cannot have an allowlist the way a form script does. Its own procedures, the document's sheets and controls, and the whole Office object model are names no list holds. So script-defuse lists the ways out of the document instead, and removes a module that uses one:
+
+- VBA's file statements and functions, such as `Open`, `Print #`, `Get`, `Put`, `Name`, `Kill`, `Dir` and `MkDir`. `Shell`, `SendKeys`, `AppActivate` and `MacScript`. `SaveSetting` and `GetSetting`, the DDE functions, and `Environ`.
+- `Declare`, `VarPtr`, `StrPtr`, `ObjPtr` and `AddressOf`.
+- `CreateObject`, `GetObject`, and `New` of a library's class. `New` of the module's own classes, `Collection`, `Dictionary` and `RegExp` is fine, and `New FileSystemObject` and `New Application` are not.
+- Office members that open another file or a URL, send mail, save elsewhere, print, import or export, run code by name or later, or change the VBA project: `Workbooks.Open`, `FollowHyperlink`, `Hyperlinks.Add`, `AttachedTemplate`, `SendMail`, `SaveAs`, `SaveCopyAs`, `ExportAsFixedFormat`, `PrintOut`, `QueryTables`, `OLEObjects.Add`, `Application.Run` with an argument, `Evaluate` of anything but a string, `ExecuteExcel4Macro`, `OnTime`, `CallByName`, `WordBasic`, `VBProject`, `VBE`, `AddIns` and the others in `src/vba.ts`.
+- A formula string that calls WEBSERVICE, CALL, REGISTER, EXEC, RTD or HYPERLINK, a DDE formula, and a macro name in another file, as `'other.xlsm'!Macro`.
+
+A name VBA or Office defines counts wherever it is written, as `Shell`, `VBA.Shell` or `.Shell` inside a `With` block. A module that declares a variable of the same name does not hide it, since the name means VBA's again in the next procedure.
+
+The project's references matter as much as its calls, since a library can add global functions a list never sees. office-defuse gives them with the project's first module, in `context.references`. script-defuse accepts VBA, OLE Automation, Office, Excel, Word, PowerPoint, Visio, Publisher, Project, Forms 2.0, the Ref Edit control, the Scripting runtime and VBScript regular expressions, by type library GUID. Any other library, and any project but Word's Normal template, is SCRIPT_EXTERNAL/REFERENCE.
+
+VBA has its own ways to hide text, and each strips the module:
+
+- `Chr` of a printable character six or more times in one statement, as `Chr(112) & Chr(111)`. A string literal could hold those characters, so only hiding them explains it. `Chr` of a control character, the quote or an accented letter is how macros write those, and stays.
+- `Chr(Asc(Mid(s, i, 1)) Xor k)` and other decoders that rebuild a string a character at a time, `StrReverse`, and `Replace` of filler out of a literal.
+- Strings that spell a payload word only once they are joined, as `"pow" & "ersh" & "ell"`, in one statement or appended to one variable across statements. The words are programs, script hosts, `http://`, file types that run, and the objects that fetch and write files. A joined string is checked for encoded data too. A long message joined from many literals hides nothing and stays.
+
 ## Obfuscation
 
 A form script has nothing to hide, so each of these strips the script:
@@ -112,6 +143,7 @@ A form script has nothing to hide, so each of these strips the script:
 | Kind | Action | Weight | When |
 |---|---|---|---|
 | SCRIPT_FORM/COMPUTATION | info | 0 | The script only formats, checks or calculates form fields |
+| SCRIPT_FORM/DOCUMENT_MACRO | info | 0 | The VBA module calls nothing on the list of ways out of its document |
 | SCRIPT_EXTERNAL/URL | strip | 60 | `app.launchURL`, `this.getURL`, `xfa.host.gotoURL`, setting a node's `href` |
 | SCRIPT_EXTERNAL/SUBMIT | strip | 50 | `this.submitForm` |
 | SCRIPT_EXTERNAL/MAIL | strip | 50 | `this.mailDoc`, `mailForm`, `app.mailMsg` |
@@ -122,6 +154,14 @@ A form script has nothing to hide, so each of these strips the script:
 | SCRIPT_EXTERNAL/MENU_COMMAND | strip | 60 | `app.execMenuItem`, `app.execDialog` |
 | SCRIPT_EXTERNAL/PRINT | strip | 20 | `this.print`, `xfa.host.print` |
 | SCRIPT_EXTERNAL/SAVE | strip | 30 | `this.saveAs`, `closeDoc` |
+| SCRIPT_EXTERNAL/FILE_SYSTEM | strip | 70 | VBA's file statements and functions, `FileSystemObject` |
+| SCRIPT_EXTERNAL/PROCESS | strip | 90 | `Shell`, `SendKeys`, `AppActivate`, `MacScript`, `New Application`, a formula that calls EXEC |
+| SCRIPT_EXTERNAL/REGISTRY | strip | 60 | `SaveSetting`, `GetSetting`, `PrivateProfileString` |
+| SCRIPT_EXTERNAL/DDE | strip | 80 | `DDEInitiate` and the other DDE functions, a DDE formula |
+| SCRIPT_EXTERNAL/COM_OBJECT | strip | 80 | `CreateObject`, `GetObject`, `New` of a library's class |
+| SCRIPT_EXTERNAL/NATIVE_CODE | strip | 90 | `Declare`, `RegisterXLL`, a formula that calls CALL or REGISTER |
+| SCRIPT_EXTERNAL/ENVIRONMENT | strip | 30 | `Environ`, `Command` |
+| SCRIPT_EXTERNAL/REFERENCE | strip | 60 | A VBA project's reference to a library or project outside the list |
 | SCRIPT_DYNAMIC_CODE/EVAL | strip | 80 | `eval`, `Function`, `import()`, FormCalc's `Eval`, `applyXSL` |
 | SCRIPT_DYNAMIC_CODE/TIMER | strip | 70 | `app.setTimeOut`, `setInterval` |
 | SCRIPT_DYNAMIC_CODE/INSTALL_SCRIPT | strip | 70 | `addScript`, `setAction`, `setPageAction`, menu and toolbar items, XFA nodes created to carry script, `loadXML` and `assignNode` outside the data |
@@ -130,6 +170,7 @@ A form script has nothing to hide, so each of these strips the script:
 | SCRIPT_DYNAMIC_CODE/PROTOTYPE | strip | 60 | `constructor`, `__proto__`, `prototype`, `Object.defineProperty`, `Proxy`, `Reflect` |
 | SCRIPT_DYNAMIC_CODE/WITH | strip | 40 | A with statement |
 | SCRIPT_DYNAMIC_CODE/SELF_REFERENCE | strip | 60 | `arguments.callee`, a function's own `toString` |
+| SCRIPT_DYNAMIC_CODE/LEGACY_MACRO | strip | 80 | `WordBasic` |
 | SCRIPT_OBFUSCATION/CHAR_CODES | strip | 50 | `String.fromCharCode` |
 | SCRIPT_OBFUSCATION/DECODE | strip | 60 | Decoders, number bases, text hidden among filler, FormCalc's `Decode` |
 | SCRIPT_OBFUSCATION/CONCATENATION | strip | 40 | A string joined from many short pieces |
@@ -141,9 +182,11 @@ A form script has nothing to hide, so each of these strips the script:
 | SCRIPT_API/EXPLOITED | strip | 80 | `getAnnots`, `syncAnnotScan`, `media`, `spell`, signature calls, `xfa.signature`, `util.printf` with a computed format or a field width past 100 |
 | SCRIPT_API/UNKNOWN | strip | 30 | A viewer API or global name that is not form computation |
 | SCRIPT_API/PASSWORD_PROMPT | strip | 50 | `app.response` or `xfa.host.response` with the password option set |
-| SCRIPT_SYNTAX/UNPARSEABLE | strip | 50 | The script is not valid JavaScript, or FormCalc for a FormCalc script |
+| SCRIPT_SYNTAX/UNPARSEABLE | strip | 50 | The script does not parse as JavaScript, as FormCalc for a FormCalc script, or as VBA for a VBA module |
 | SCRIPT_LIMIT/SIZE | strip | 30 | The script is longer than `limits.scriptSize` |
 | SCRIPT_LIMIT/DEPTH | strip | 30 | The script nests deeper than `limits.depth` |
+
+The rows above name the PDF APIs. VBA's calls go to the same kinds where they fit: `Workbooks.Open` and `AttachedTemplate` are SCRIPT_EXTERNAL/OPEN_DOCUMENT, `FollowHyperlink` SCRIPT_EXTERNAL/URL, `Application.Run` and `Evaluate` SCRIPT_DYNAMIC_CODE/EVAL, `VBProject` SCRIPT_DYNAMIC_CODE/INSTALL_SCRIPT.
 
 The categories start with `SCRIPT_` so they never read as another package's kinds in a shared report. pdf-defuse has a FORM category of its own.
 
@@ -162,7 +205,7 @@ The score takes the highest weight in full and a quarter of each other kind's we
 | `actionOverrides` | none | `[{ category, detail?, action }]` sets a kind to `strip` or `info`. An `info` kind no longer makes a script unsafe |
 | `scoreWeights` | none | `[{ category, detail?, weight }]` |
 | `scoreBands` | above | `{ low, medium, high, critical }` |
-| `context` | none | `inspectScript` only. `{ trigger, location, fieldName, language, form }`. The first three go into the findings' locations. `language: 'formcalc'` reads FormCalc, and `form: 'xfa'` reads JavaScript against the XFA object model |
+| `context` | none | `inspectScript` only. `{ trigger, location, fieldName, language, form, references }`. `location`, or `trigger` without it, goes into the findings' locations. `language: 'formcalc'` reads FormCalc, `language: 'vba'` reads a VBA module, and `form: 'xfa'` reads JavaScript against the XFA object model. `references` are a VBA project's, as `{ name, kind, libid }` |
 | `knownGlobals` | none | `inspectScript` only. Global names scripts that ran before defined and kept |
 
 A limit left out is not enforced. `formScriptPlugin(options)` takes the same options but `context` and `knownGlobals`, which it fills in itself, and keeps every decision it made in `plugin.decisions`.
@@ -172,6 +215,8 @@ A limit left out is not enforced. `formScriptPlugin(options)` takes the same opt
 - A form script can loop forever. script-defuse does not decide whether a loop ends.
 - pdf-defuse removes an XFA form's submits, connections, unsafe links and the images no plugin keeps. script-defuse sees only the scripts it is handed.
 - A form that uses a viewer API outside the allowlist loses that script. An action override keeps a kind you accept.
+- In VBA, the list of ways out is a deny list. An Office member that reaches outside the document and is not on it gets through. script-defuse checks the project's references and the classes a module creates, which keeps a library from adding ways the list does not know.
+- A macro that only works on its document can still change or delete what the document holds.
 - JavaScript files, and scripts in HTML, are not covered yet.
 
 ## Development
@@ -181,7 +226,7 @@ npm install
 npm test
 ```
 
-`npm test` runs the linter, builds, and runs the tests. The tests build each script they check. No sample from a real form or a malicious file goes in this repository.
+`npm test` runs the linter, builds, and runs the tests. The tests build each script and module they check. No sample from a real form, document or malicious file goes in this repository.
 
 ## License
 

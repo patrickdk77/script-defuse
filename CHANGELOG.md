@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0 - 2026-10-16
+
+- `inspectScript` reads a VBA module with `context.language: 'vba'`. A module stays when it calls nothing on a list of the ways a macro reaches outside its document: VBA's file, process, registry, DDE and environment functions, `Declare` and pointers, `CreateObject`, `GetObject` and `New` of a library's class, and the Office members that open other files and URLs, send mail, save elsewhere, print, or run code by name, later or in the VBA editor. A formula string that reaches outside counts too.
+- `context.references` takes a VBA project's references. A type library outside the list in the README, or a project other than Word's Normal template, is SCRIPT_EXTERNAL/REFERENCE.
+- New kinds for VBA: SCRIPT_FORM/DOCUMENT_MACRO, SCRIPT_EXTERNAL/FILE_SYSTEM, PROCESS, REGISTRY, DDE, COM_OBJECT, NATIVE_CODE, ENVIRONMENT and REFERENCE, and SCRIPT_DYNAMIC_CODE/LEGACY_MACRO.
+- VBA obfuscation strips a module: `Chr` of printable characters, decoders that rebuild a string a character at a time, `StrReverse`, `Replace` of filler, and strings that spell a payload word only once their pieces are joined.
+- `formScriptPlugin` takes the modules office-defuse 0.2.3 hands it.
+- SCRIPT_SYNTAX/UNPARSEABLE says the script does not parse, where it said the script is not valid JavaScript.
+
 ## 0.1.0 - 2026-10-16
 
 First release.

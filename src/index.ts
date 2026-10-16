@@ -5,3 +5,4 @@ export { analyzeFormCalc } from './formcalc';
 export { type FormScriptPlugin, formScriptPlugin, type PluginScript } from './plugins';
 export { COMBINATIONS, DEFAULT_BANDS, scoreFindings } from './score';
 export * from './types';
+export { analyzeVba } from './vba';

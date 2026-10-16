@@ -14,6 +14,7 @@ function def(c: C, d: D, action: ScriptFindingAction, weight: number, descriptio
 
 // FORM
 def(C.Form, D.Computation, 'info', 0, 'The script only formats, checks or calculates form fields');
+def(C.Form, D.DocumentMacro, 'info', 0, 'The macro calls nothing script-defuse knows to reach outside its document');
 // EXTERNAL
 def(C.External, D.Url, 'strip', 60, '<api> opens a web address');
 def(C.External, D.Submit, 'strip', 50, '<api> sends the form data somewhere');
@@ -25,6 +26,14 @@ def(C.External, D.Network, 'strip', 70, '<api> talks to a network service');
 def(C.External, D.MenuCommand, 'strip', 60, '<api> runs a viewer menu command');
 def(C.External, D.Print, 'strip', 20, '<api> prints');
 def(C.External, D.Save, 'strip', 30, '<api> saves or closes the document');
+def(C.External, D.FileSystem, 'strip', 70, '<api> reads, writes or lists files and folders');
+def(C.External, D.Process, 'strip', 90, '<api> starts a program or sends keystrokes to one');
+def(C.External, D.Registry, 'strip', 60, '<api> reads or writes the registry or settings files');
+def(C.External, D.Dde, 'strip', 80, '<api> talks to another program over DDE');
+def(C.External, D.ComObject, 'strip', 80, '<api> creates or gets an object from outside the document, such as a shell or a web request');
+def(C.External, D.NativeCode, 'strip', 90, '<api> calls native code in a library');
+def(C.External, D.Environment, 'strip', 30, '<api> reads the environment of the computer it runs on');
+def(C.External, D.Reference, 'strip', 60, 'The project refers to <api>, a library or project from outside the document');
 // DYNAMIC_CODE
 def(C.DynamicCode, D.Eval, 'strip', 80, '<api> runs code built from a string');
 def(C.DynamicCode, D.Timer, 'strip', 70, '<api> runs code later, from a string');
@@ -34,6 +43,7 @@ def(C.DynamicCode, D.ComputedAccess, 'strip', 40, 'A property is read by a name 
 def(C.DynamicCode, D.Prototype, 'strip', 60, '<api> reaches the language machinery behind objects and functions');
 def(C.DynamicCode, D.With, 'strip', 40, 'A with statement changes what names refer to');
 def(C.DynamicCode, D.SelfReference, 'strip', 60, '<api> reads the source of the running code, the way self-decrypting scripts do');
+def(C.DynamicCode, D.LegacyMacro, 'strip', 80, '<api> runs a command of an older macro language, which reaches outside the document');
 // OBFUSCATION
 def(C.Obfuscation, D.CharCodes, 'strip', 50, 'Text is built from character codes');
 def(C.Obfuscation, D.Decode, 'strip', 60, '<api> decodes hidden text');
@@ -48,7 +58,7 @@ def(C.Api, D.Exploited, 'strip', 80, '<api> is a viewer API known from exploits'
 def(C.Api, D.Unknown, 'strip', 30, '<api> is not a form calculation, format or check');
 def(C.Api, D.PasswordPrompt, 'strip', 50, '<api> asks for a password in a prompt, as a fake sign-in does. A form takes a password in a field of its own');
 // SYNTAX
-def(C.Syntax, D.Unparseable, 'strip', 50, 'The script is not valid JavaScript, so what it does cannot be told');
+def(C.Syntax, D.Unparseable, 'strip', 50, 'The script does not parse, so what it does cannot be told');
 // LIMIT
 def(C.Limit, D.Size, 'strip', 30, 'The script is longer than limits.scriptSize');
 def(C.Limit, D.Depth, 'strip', 30, 'The script nests deeper than limits.depth');
