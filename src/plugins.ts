@@ -1,4 +1,5 @@
 import { inspectScript } from './engine';
+import { weightOf } from './score';
 import type { ScriptContext, ScriptFinding, ScriptOptions } from './types';
 
 /** The script a container hands its plugins, as pdf-defuse's ContainedScript gives it. */
@@ -34,8 +35,11 @@ export function formScriptPlugin(options: ScriptOptions = {}): FormScriptPlugin 
       const r = inspectScript(script.text, { ...options, context: script, knownGlobals: known });
       const result = r.verdict === 'form' ? 'passed' : 'removed';
       if (result === 'passed') for (const name of r.definedGlobals) known.add(name);
-      decisions.push({ script, result, findings: r.findings });
-      return { result, findings: r.findings };
+      // The container scores the script by these weights alone, so they are the ones this script's score counted:
+      // a finding that strips, at the caller's weight, and nothing for one that only describes the script.
+      const findings = r.findings.map(f => ({ ...f, weight: f.action === 'strip' ? weightOf(f, options) : 0 }));
+      decisions.push({ script, result, findings });
+      return { result, findings };
     },
   };
 }

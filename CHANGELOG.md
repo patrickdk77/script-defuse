@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0 - 2026-10-17
+
+- The findings `formScriptPlugin` returns weigh what they add to the script's score: a finding that strips weighs what the plugin's `scoreWeights` or the table gives it, and one that only describes the script weighs 0. They carried the table's weight before, whatever the plugin's `scoreWeights` or `actionOverrides` said.
+
 ## 0.2.0 - 2026-10-16
 
 - `inspectScript` reads a VBA module with `context.language: 'vba'`. A module stays when it calls nothing on a list of the ways a macro reaches outside its document: VBA's file, process, registry, DDE and environment functions, `Declare` and pointers, `CreateObject`, `GetObject` and `New` of a library's class, and the Office members that open other files and URLs, send mail, save elsewhere, print, or run code by name, later or in the VBA editor. A formula string that reaches outside counts too.

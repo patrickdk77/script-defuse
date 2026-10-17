@@ -35,6 +35,8 @@ const result = await disarmPdf(bytes, { scriptPlugins: [formScriptPlugin()] });
 
 pdf-defuse removes every script unless a plugin keeps it. This plugin keeps the form scripts and removes the rest. From pdf-defuse 0.2.4 the plugin's findings go into the PDF's report at each script's location.
 
+The plugin's answer is final, and its findings are what the script scores. Each finding's `weight` is what it adds to that script's score from `inspectScript`: a finding that strips weighs what `scoreWeights` or the table gives it, and one that only describes the script weighs 0. A form script the plugin keeps therefore adds nothing to the PDF's score from pdf-defuse 0.3.0 and office-defuse 0.3.0. Earlier versions scored a kept script at their own weight for it.
+
 Make one plugin per PDF. pdf-defuse hands it the document-level scripts first, and the plugin remembers the globals of the ones it kept, so a field script may call a helper they define. A field script that calls a helper from a document script the plugin removed is removed too.
 
 With [file-defuse](https://github.com/patrickdk77/file-defuse) 0.1.4 or later, every PDF and Office file already gets one.

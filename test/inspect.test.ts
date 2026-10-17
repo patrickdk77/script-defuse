@@ -277,4 +277,17 @@ describe('formScriptPlugin', () => {
     const r = await formScriptPlugin().process({ text: 'this.submitForm("http://example.com");', trigger: 'click' });
     expect(r.findings?.some(f => f.detail === D.Submit)).to.equal(true);
   });
+
+  it('weighs its findings as the script score counts them, so a container scores the script by them alone', async () => {
+    const kept = await formScriptPlugin().process({ text: 'var inertSum = Number(getField("InertLeft").value) + 7; event.value = inertSum;', trigger: 'field-calculate', fieldName: 'InertRight' });
+    expect(kept.result).to.equal('passed');
+    expect(kept.findings?.length).to.be.greaterThan(0);
+    expect(kept.findings?.map(f => f.weight)).to.satisfy((w: number[]) => w.every(x => x === 0));
+    const text = 'this.submitForm("http://example.com");';
+    const removed = await formScriptPlugin({ scoreWeights: [{ category: C.External, weight: 33 }] }).process({ text, trigger: 'click' });
+    const submit = removed.findings?.find(f => f.detail === D.Submit);
+    expect([removed.result, submit?.weight]).to.deep.equal(['removed', 33]);
+    const own = inspectScript(text, { context: { trigger: 'click' }, scoreWeights: [{ category: C.External, weight: 33 }] });
+    expect(Math.max(...(removed.findings ?? []).map(f => f.weight ?? 0))).to.equal(own.score);
+  });
 });
