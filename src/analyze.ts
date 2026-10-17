@@ -228,10 +228,10 @@ export function analyzeScript(input: AnalyzeInput): AnalyzeResult {
 
   // 2. What each binding is given: initializers and assignments. An assignment to a name nothing declares makes a
   // global, unless it is a property of the document, which an AcroForm script's bare names reach.
-  const global = (name: string): Binding | undefined => (!xfa && DOC_ALL.has(name) ? undefined : top.declare(name));
+  const declareGlobal = (name: string): Binding | undefined => (!xfa && DOC_ALL.has(name) ? undefined : top.declare(name));
   const assign = (target: Pattern, expr: Expression | undefined, scope: Scope) => {
     for (const name of patternNames(target)) {
-      const b = scope.lookup(name) ?? global(name);
+      const b = scope.lookup(name) ?? declareGlobal(name);
       if (!b) continue;
       if (expr && target.type === 'Identifier') b.sources.push({ expr, scope });
       else b.kinds.add('unknown');
@@ -252,12 +252,12 @@ export function analyzeScript(input: AnalyzeInput): AnalyzeResult {
       }
     } else if (n.type === 'AssignmentExpression' && n.left.type !== 'MemberExpression') {
       if (n.operator === '=') assign(n.left, n.right, scope);
-      else for (const name of patternNames(n.left)) (scope.lookup(name) ?? global(name))?.kinds.add(n.operator === '+=' ? 'data' : 'number');
+      else for (const name of patternNames(n.left)) (scope.lookup(name) ?? declareGlobal(name))?.kinds.add(n.operator === '+=' ? 'data' : 'number');
     } else if ((n.type === 'ForInStatement' || n.type === 'ForOfStatement') && n.left.type !== 'VariableDeclaration' && n.left.type !== 'MemberExpression') {
-      for (const name of patternNames(n.left)) (scope.lookup(name) ?? global(name))?.kinds.add(n.type === 'ForInStatement' ? 'string' : 'unknown');
+      for (const name of patternNames(n.left)) (scope.lookup(name) ?? declareGlobal(name))?.kinds.add(n.type === 'ForInStatement' ? 'string' : 'unknown');
     } else if ((n.type === 'ForInStatement' || n.type === 'ForOfStatement') && n.left.type === 'VariableDeclaration') {
       for (const d of n.left.declarations) for (const name of patternNames(d.id)) (scope.lookup(name) ?? scope.declare(name)).kinds.add(n.type === 'ForInStatement' ? 'string' : 'unknown');
-    } else if (n.type === 'UpdateExpression' && n.argument.type === 'Identifier') (scope.lookup(n.argument.name) ?? global(n.argument.name))?.kinds.add('number');
+    } else if (n.type === 'UpdateExpression' && n.argument.type === 'Identifier') (scope.lookup(n.argument.name) ?? declareGlobal(n.argument.name))?.kinds.add('number');
     for (const c of children(n)) collect(c, inner);
   };
   collect(program, top);

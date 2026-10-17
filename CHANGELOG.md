@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1 - 2026-10-17
+
+- The helper that declares a global binding in the scripts it reads is `declareGlobal`, not `global`. Security scanners match Node's global names in built code. Nothing else changes.
+
 ## 0.3.0 - 2026-10-17
 
 - The findings `formScriptPlugin` returns weigh what they add to the script's score: a finding that strips weighs what the plugin's `scoreWeights` or the table gives it, and one that only describes the script weighs 0. They carried the table's weight before, whatever the plugin's `scoreWeights` or `actionOverrides` said.

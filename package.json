@@ -1,6 +1,6 @@
 {
   "name": "@patrickdk77/script-defuse",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Inspect document scripts: PDF form scripts in JavaScript and FormCalc, from AcroForm and XFA forms, and the VBA modules of Office documents. Keeps a form script only when every call and property it uses formats, checks or calculates form fields, and a macro only when it calls nothing that reaches outside its document. Reports external access, dynamic code and obfuscation. Includes a script plugin for pdf-defuse and office-defuse.",
   "license": "MIT",
   "author": "patrickdk77",
